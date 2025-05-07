@@ -309,7 +309,7 @@ sub create_printer_commands {
     $print_information_command .= "\x00";                  # Starting page: 0 - Other pages: 1 (n9)
     $print_information_command .= "\x00";                  # fixed (n10)
     $commands .= $print_information_command;
-    $commands .= "\x1b\x69\x64\x18\x00 ";                  
+    $commands .= "\x1b\x69\x64\x18\x00";                  
     $commands .= "\x4d\x00";                               
     $commands .= $image_data;
     $commands .= "\x1a";                                  # print with feeding
