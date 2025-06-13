@@ -369,23 +369,19 @@ sub create_printer_commands {
 
     $commands.=$init_commands;
     for (my $i=0;$i<=$num_pages;$i++) {
-            print "printing page $i\n";
             $commands .= $control_commands;
             $commands .= $image_data;
             if ($i < $num_pages) {
                 $commands .= "\x0c";                       # print without LF
-                print "next\n";
             }
     }                              
     $commands .= "\x1a";                                  # print with feeding
-    print "last\n";
     
     if($debug) {
         open(COMMANDS,">commands.prn");
         print COMMANDS $commands;
         close COMMANDS;
     }
-    #exit;
 
     return $commands;
 }
