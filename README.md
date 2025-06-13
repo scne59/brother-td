@@ -4,7 +4,7 @@ brother-td.pl - A script to print on Brother label printers of the TD series
 
 # SYNOPSIS
 
-brother-td.pl -f filename \[-r\] \[-l label\_size\] \[-t label\_type\] \[-p printer\_name\] \[-s printer\_serial\] \[-d\]
+brother-td.pl -f filename \[-r\] \[-l label\_size\] \[-t label\_type\] \[-p printer\_name\] \[-s printer\_serial\] \[-d\] \[-m \[dither\_algo\]\] \[-b\] \[-n num\_copies\]
 
 # DESCRIPTION
 
@@ -42,6 +42,16 @@ It requires the following modules to work:
 
     Rotate image 90 degrees.
 
+- `-m|--dither` (optional)
+
+    Apply dither to color/grayscale images.
+    Defaults to "floyd".
+    Accepts "floyd", "stucki" and "jarvis" as dither values.
+
+- `-b` (optional)
+
+    Use black margin pixels.
+
 - `-p|--product [printer_name]` (optional)
 
     Set printer name for USB device discovery (see list of supported printers)
@@ -49,6 +59,10 @@ It requires the following modules to work:
 - `-s|--serial` (optional)
 
     Set printer USB serial number (as given by \`lsusb -v\`) for USB dicovery.
+
+- `-n|--number` (optional)
+
+    Set number of copies.
 
 - `-d|--debug` (optional)
 
