@@ -4,6 +4,9 @@ use warnings;
 use USB::LibUSB;
 use Imager;
 use Getopt::Long;
+use POSIX 'ceil';
+use File::Temp qw/ :POSIX /;
+use File::Type;
 
 no warnings "experimental::for_list";
 
@@ -15,14 +18,12 @@ brother-td.pl - A script to print on Brother label printers of the TD series
 
 =head1 SYNOPSIS
 
-brother-td.pl -f filename [-r] [-l label_size] [-t label_type] [-p printer_name] [-s printer_serial] [-d]
+brother-td.pl -f filename [-r] [-l label_size] [-t label_type] [-p printer_name] [-s printer_serial] [-d] [-m [dither_algo]] [-b] [-n num_copies]
 
 =head1 DESCRIPTION
 
 This script can print image files to a USB connected Brother label printer.
 The following devices are supported:
-
-
 
 =over
 
@@ -71,6 +72,16 @@ Set label format in mm. For continous length tape HEIGHT is ignored.
 
 Rotate image 90 degrees.
 
+=item C<-m|--dither> (optional)
+
+Apply dither to color/grayscale images.
+Defaults to "floyd".
+Accepts "floyd", "stucki" and "jarvis" as dither values.
+
+=item C<-b> (optional)
+
+Use black margin pixels.
+
 =item C<-p|--product [printer_name]> (optional)
 
 Set printer name for USB device discovery (see list of supported printers)
@@ -78,6 +89,10 @@ Set printer name for USB device discovery (see list of supported printers)
 =item C<-s|--serial> (optional)
 
 Set printer USB serial number (as given by `lsusb -v`) for USB dicovery.
+
+=item C<-n|--number> (optional)
+
+Set number of copies.
 
 =item C<-d|--debug> (optional)
 
@@ -111,17 +126,28 @@ my $label_height=0;
 my $printer_serial='';
 my $printer_name='';
 my $debug = '';
+my $dither;
+my %dither_modes = ( 'floyd' => 'floyd',
+                    'jarvis' => 'jarvis',
+                    'stucki' => 'stucki' );
+my $margin_color = 0;
+my $num_pages = 1;
 
-Getopt::Long::Configure ("auto_help");
+Getopt::Long::Configure ("auto_help", "no_auto_abbrev");
 GetOptions(
-    "file=s" => \$image_file,
-    "rotate!" => \$rotate,
-    "label=s" => \$label_size,
-    "type=s" => \$label_type,
-    "product=s" => \$printer_name,
-    "serial=s" => \$printer_serial,
-    "debug!" => \$debug,
+    "file|f=s" => \$image_file,
+    "rotate|r!" => \$rotate,
+    "label|l=s" => \$label_size,
+    "type|t=s" => \$label_type,
+    "product|p=s" => \$printer_name,
+    "serial|s=s" => \$printer_serial,
+    "debug|d!" => \$debug,
+    "dither|m:s" => \$dither,
+    "b!" => \$margin_color,
+    "number|n=i", \$num_pages,
 );
+
+$dither = 'floyd' if defined($dither) && $dither eq '';
 
 #if ($image_file eq '') { die "no image file\n"};
 
@@ -163,9 +189,10 @@ my $MAX_LENGTH = 3000 / $MM_PER_INCH * $DPI;
 
 my $MAX_WIDTH  = int($label_width * $DPI / $MM_PER_INCH);
 my $MAX_HEIGHT = int($label_height * $DPI / $MM_PER_INCH)-48;
+
 if ($label_type eq 'c'){
     $MAX_HEIGHT = $MAX_LENGTH;
-    $label_type_cmd = "\x0b";
+    $label_type_cmd = "\x0a";
 }
 
 eval {
@@ -177,7 +204,20 @@ if ($@) {
     die "Interface claim failed: $@\n";
 }
 
-print_image($printer, $image_file);
+my $ft = File::Type->new();
+my $type = $ft->checktype_filename($image_file);
+#print $type,"\n";exit;
+if ($type eq 'application/pdf') {
+    my $png_tmp = File::Temp->new(SUFFIX => '.png');
+    `convert -density $DPI -units pixelsperinch $image_file $png_tmp`;
+    print_image($printer, $png_tmp);
+} elsif ($image_file=~/.*\.svg/i){
+    my $png_tmp = File::Temp->new(SUFFIX => '.png');
+    `convert -density $DPI -units pixelsperinch $image_file $png_tmp`;
+    print_image($printer, $png_tmp);
+} else {
+    print_image($printer, $image_file);
+}
 
 $printer->release_interface(0);
 $printer->close();
@@ -245,8 +285,20 @@ sub print_image {
         $image = $image->scale(scalefactor => $scalefactor);
         ($width, $height) = ($image->getwidth(), $image->getheight());
     }
-        
-    $image = $image->convert(preset => 'gray');
+
+    if ($label_type eq 'c') {
+        $label_height = ceil($height/$DPI*$MM_PER_INCH);
+    }
+
+    if ($dither) {
+        my $errdiff;
+        if ($dither_modes{$dither} ne '') {$errdiff = $dither_modes{$dither}}
+        $image = $image->to_paletted({    make_colors => 'mono',
+                                          translate => 'errdiff',
+                                          errdiff => $errdiff });
+    } else {
+        $image = $image->convert(preset => 'gray');
+    }
     if ($debug) {
         $image->write(file=>"image.png");
     }
@@ -258,7 +310,7 @@ sub print_image {
     for my $raster_line (0 .. $height-1) {
         my $line;
         for(1..$margin_pixels/2){
-            $line.=0;    
+            $line.=$margin_color;    
         }
         for (my $raster_column = $width-1;$raster_column>=0;$raster_column--) {
             my $color = $image->getpixel(x => $raster_column,y => $raster_line);
@@ -266,7 +318,7 @@ sub print_image {
             $line.= ($r > 128) ? 0 : 1;
         }
         for(1..($RASTER_PIXELS-length($line))){
-            $line.=0;    
+            $line.=$margin_color;    
         }
         $raster_data.="\x67\x00\x68";
         my $cursor=0;
@@ -296,10 +348,13 @@ sub create_printer_commands {
     my ($width, $height, $image_data) = @_;
     
     my $commands = "";
-    $commands .= pack('C350',0);                           # send 350 null bytes to invalidate
-    $commands .= "\x1b\x40";                               # ESC @ - Initialize
-    $commands .= "\x1b\x69\x61\x01";                       # switch printer to raster mode
-    $commands .= "\x1b\x69\x21\x00";                       # switch automatic status notification to off
+    my $init_commands = "";
+    my $control_commands = "";
+    my $raster_commands = "";
+    $init_commands .= pack('C350',0);                           # send 350 null bytes to invalidate
+    $init_commands .= "\x1b\x40";                               # ESC @ - Initialize
+    $control_commands .= "\x1b\x69\x61\x01";                       # switch printer to raster mode
+    $control_commands .= "\x1b\x69\x21\x00";                       # switch automatic status notification to off
     my $print_information_command = "\x1b\x69\x7a";
     $print_information_command .= "\x8e";                  # #define PI_KIND 0x02// Media type #define PI_WIDTH 0x04// Media width #define PI_LENGTH 0x08// Media length #define PI_RECOVER 0x80// Printer recovery always on (n1)
     $print_information_command .= $label_type_cmd;                  # 0x0b - die cut label, 0x0a - continous length tape (n2)
@@ -308,17 +363,29 @@ sub create_printer_commands {
     $print_information_command .= pack('V', $height);      # 4 bytes of raster length (n5-n8)
     $print_information_command .= "\x00";                  # Starting page: 0 - Other pages: 1 (n9)
     $print_information_command .= "\x00";                  # fixed (n10)
-    $commands .= $print_information_command;
-    $commands .= "\x1b\x69\x64\x18\x00";                  
-    $commands .= "\x4d\x00";                               
-    $commands .= $image_data;
-    $commands .= "\x1a";                                  # print with feeding
+    $control_commands .= $print_information_command;
+    $control_commands .= "\x1b\x69\x64\x18\x00";                  
+    $control_commands .= "\x4d\x00";
 
+    $commands.=$init_commands;
+    for (my $i=0;$i<=$num_pages;$i++) {
+            print "printing page $i\n";
+            $commands .= $control_commands;
+            $commands .= $image_data;
+            if ($i < $num_pages) {
+                $commands .= "\x0c";                       # print without LF
+                print "next\n";
+            }
+    }                              
+    $commands .= "\x1a";                                  # print with feeding
+    print "last\n";
+    
     if($debug) {
         open(COMMANDS,">commands.prn");
         print COMMANDS $commands;
         close COMMANDS;
     }
+    #exit;
 
     return $commands;
 }
