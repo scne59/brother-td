@@ -206,14 +206,16 @@ if ($@) {
 
 my $ft = File::Type->new();
 my $type = $ft->checktype_filename($image_file);
-#print $type,"\n";exit;
+
 if ($type eq 'application/pdf') {
     my $png_tmp = File::Temp->new(SUFFIX => '.png');
     `convert -density $DPI -units pixelsperinch $image_file $png_tmp`;
     print_image($printer, $png_tmp);
 } elsif ($image_file=~/.*\.svg/i){
     my $png_tmp = File::Temp->new(SUFFIX => '.png');
-    `convert -density $DPI -units pixelsperinch $image_file $png_tmp`;
+    my $w = (($rotate) ? $label_height : $label_width)."mm";
+    my $h = (($rotate) ? $label_width : $label_height)."mm";
+    `rsvg-convert --width=$w --height=$h --keep-aspect-ratio --dpi-x=$DPI --dpi-y=$DPI $image_file > $png_tmp`;
     print_image($printer, $png_tmp);
 } else {
     print_image($printer, $image_file);
@@ -221,8 +223,6 @@ if ($type eq 'application/pdf') {
 
 $printer->release_interface(0);
 $printer->close();
-
-exit 0;
 
 sub find_printer {
     my ($usb, $vid, $name, $serial) = @_;
@@ -301,6 +301,7 @@ sub print_image {
     }
     if ($debug) {
         $image->write(file=>"image.png");
+        #exit;
     }
 
     my $raster_data;
@@ -368,7 +369,7 @@ sub create_printer_commands {
     $control_commands .= "\x4d\x00";
 
     $commands.=$init_commands;
-    for (my $i=0;$i<=$num_pages;$i++) {
+    for (my $i=0;$i<$num_pages;$i++) {
             $commands .= $control_commands;
             $commands .= $image_data;
             if ($i < $num_pages) {
