@@ -209,7 +209,7 @@ my $type = $ft->checktype_filename($image_file);
 
 if ($type eq 'application/pdf') {
     my $png_tmp = File::Temp->new(SUFFIX => '.png');
-    `convert -density $DPI -units pixelsperinch $image_file $png_tmp`;
+    `convert -density $DPI -units pixelsperinch -alpha off $image_file $png_tmp`;
     print_image($printer, $png_tmp);
 } elsif ($image_file=~/.*\.svg/i){
     my $png_tmp = File::Temp->new(SUFFIX => '.png');
