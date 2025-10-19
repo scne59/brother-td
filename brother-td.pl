@@ -82,6 +82,10 @@ Accepts "floyd", "stucki" and "jarvis" as dither values.
 
 Use black margin pixels.
 
+=item C<-i> (optional)
+
+Invert colors.
+
 =item C<-p|--product [printer_name]> (optional)
 
 Set printer name for USB device discovery (see list of supported printers)
@@ -131,6 +135,7 @@ my %dither_modes = ( 'floyd' => 'floyd',
                     'jarvis' => 'jarvis',
                     'stucki' => 'stucki' );
 my $margin_color = 0;
+my $inverted = 0;
 my $num_pages = 1;
 
 Getopt::Long::Configure ("auto_help", "no_auto_abbrev");
@@ -145,6 +150,7 @@ GetOptions(
     "dither|m:s" => \$dither,
     "b!" => \$margin_color,
     "number|n=i", \$num_pages,
+    "i!" => \$inverted
 );
 
 $dither = 'floyd' if defined($dither) && $dither eq '';
@@ -311,15 +317,16 @@ sub print_image {
     for my $raster_line (0 .. $height-1) {
         my $line;
         for(1..$margin_pixels/2){
-            $line.=$margin_color;    
+            $line.=$margin_color ^ $inverted;
         }
         for (my $raster_column = $width-1;$raster_column>=0;$raster_column--) {
             my $color = $image->getpixel(x => $raster_column,y => $raster_line);
             my ($r) = $color->rgba;
-            $line.= ($r > 128) ? 0 : 1;
+            $line .= (($r > 128) ? 0 : 1) ^ $inverted;
+
         }
         for(1..($RASTER_PIXELS-length($line))){
-            $line.=$margin_color;    
+            $line.=$margin_color ^ $inverted;
         }
         $raster_data.="\x67\x00\x68";
         my $cursor=0;
