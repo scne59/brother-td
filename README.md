@@ -4,7 +4,7 @@ brother-td.pl - A script to print on Brother label printers of the TD series
 
 # SYNOPSIS
 
-brother-td.pl -f filename \[-r\] \[-l label\_size\] \[-t label\_type\] \[-p printer\_name\] \[-s printer\_serial\] \[-d\] \[-m \[dither\_algo\]\] \[-b\] \[-n num\_copies\]
+brother-td.pl -f filename \[-r\] \[-l label\_size\] \[-t label\_type\] \[-p printer\_name\] \[-s printer\_serial\] \[-d\] \[-m \[dither\_algo\]\] \[-b\] \[-i\] \[-n num\_copies\]
 
 # DESCRIPTION
 
@@ -21,7 +21,7 @@ The following devices are supported:
 It requires the following modules to work:
 
 - Imager
-- USB:LibUSB
+- USB::LibUSB
 
 # Command Line Options
 
@@ -32,11 +32,11 @@ It requires the following modules to work:
 - `-t|--type` (optional, defaults to "d")
 
     Set label type.
-    "d" - die-cut labels, "c" - continous length tape
+    "d" - die-cut labels, "c" - continuous length tape
 
 - `-l|--label [WIDTHxHEIGHT]` (optional, defaults to "102x200")
 
-    Set label format in mm. For continous length tape HEIGHT is ignored.
+    Set label format in mm. For continuous length tape HEIGHT is ignored.
 
 - `-r|--rotate` (optional)
 
@@ -52,13 +52,17 @@ It requires the following modules to work:
 
     Use black margin pixels.
 
+- `-i` (optional)
+
+    Invert colors.
+
 - `-p|--product [printer_name]` (optional)
 
     Set printer name for USB device discovery (see list of supported printers)
 
 - `-s|--serial` (optional)
 
-    Set printer USB serial number (as given by \`lsusb -v\`) for USB dicovery.
+    Set printer USB serial number (as given by \`lsusb -v\`) for USB discovery.
 
 - `-n|--number` (optional)
 
@@ -66,7 +70,7 @@ It requires the following modules to work:
 
 - `-d|--debug` (optional)
 
-    Enable debug output. Saves the converted image to "image.png" and the prepared raster data to "raster.dat".
+    Enable debug output. Saves the converted image to "image.png", the prepared raster data to "raster.dat", and the printer commands to "commands.prn".
 
 # COPYRIGHT
 
